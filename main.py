@@ -82,6 +82,8 @@ max_sleep_count = 30
 normal = False
 normal_count = 0.0
 normal_eye_ratio = 0
+eyeflag=False
+headflag=False
 
 def eye_ratio(eye):
     avg_height = (abs(eye[1][1]-eye[5][1])+abs(eye[2][1]-eye[4][1]))/2
@@ -136,11 +138,9 @@ while True:
         eye_avg_ratio = eye_ratio(left_eye)+eye_ratio(right_eye)/2.0
     # Draw text if mouth is open
         if mar > MOUTH_AR_THRESH:
-            cv2.putText(frame, "Mouth is Open!", (30,60),
+            cv2.putText(frame, "Talking", (30,60),
             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
-            print('mouth is open')
-        else:
-            print('mouth is closed')
+            
         #print(eye_avg_ratio)
         if(not(normal)):
             if(normal_count<50):
@@ -158,7 +158,7 @@ while True:
             if(normal_eye_ratio-eye_avg_ratio>0.05):
                 sleep_count = sleep_count+1
                 if(sleep_count>max_sleep_count):
-                    cv2.putText(frame, "SLEEPING!!!", (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 0, 255), 2)
+                    cv2.putText(frame, "SLEEPING!!!", (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                     print("Sleeping")
             else:
                 print("awake")
@@ -167,12 +167,19 @@ while True:
                     cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
                     roi_gray = frame[y:y+h, x:x+w]
                     roi_color = frame[y:y+h, x:x+w]
+                    eyeflag=True
         
                     eyes = eye_cascade.detectMultiScale(roi_gray)
                     for (ex,ey,ew,eh) in eyes:
                         cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
                 for (x, y, w, h) in faceee:
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 4)
+                    cv2.putText(frame, "Student is here", (30,85),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
+                    headflag=True
+                if(headflag==True & eyeflag==False):
+                    cv2.putText(frame, "Student is writing", (30,120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
     # Write the frame into the file 'output.avi'
     out.write(frame)    
     #show web cam frame 
