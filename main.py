@@ -17,6 +17,7 @@ import imutils
 import time
 import dlib
 import cv2
+import sys
 
 # multiple cascades: https://github.com/Itseez/opencv/tree/master/data/haarcascades
 
@@ -97,6 +98,13 @@ while True:
     img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_recognition(img, 0)
     facee = face_cascade.detectMultiScale(frame, 1.3, 5)
+    faceee = face_cascade.detectMultiScale(
+        img,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(30, 30)
+        #flags=cv2.CV_HAAR_SCALE_IMAGE
+    )
     if(not(normal) and normal_count<47):
         cv2.putText(frame, "FOCUS YOUR NORMAL EYES", (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 0, 255), 2)    
 
@@ -163,6 +171,8 @@ while True:
                     eyes = eye_cascade.detectMultiScale(roi_gray)
                     for (ex,ey,ew,eh) in eyes:
                         cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+                for (x, y, w, h) in faceee:
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 4)
     # Write the frame into the file 'output.avi'
     out.write(frame)    
     #show web cam frame 
