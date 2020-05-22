@@ -18,6 +18,29 @@ import time
 import dlib
 import cv2
 import sys
+#sound packages
+import pyaudio
+import librosa
+import numpy as np
+import matplotlib.pyplot as plt
+import keras
+
+import yamnet.params as params
+import yamnet.yamnet as yamnet_model
+yamnet = yamnet_model.yamnet_frames_model(params)
+yamnet.load_weights('yamnet/yamnet.h5')
+yamnet_classes = yamnet_model.class_names('yamnet/yamnet_class_map.csv')
+#facial packages
+from keras.models import load_model
+from time import sleep
+from keras.preprocessing.image import img_to_array
+from keras.preprocessing import image
+import cv2
+import numpy as np
+
+face_classifier = cv2.CascadeClassifier('/Users/Admin/Documents/GitHub/emotion_detection/haarcascade_frontalface_default.xml')
+classifier =load_model('/Users/Admin/Documents/GitHub/emotion_detection/Emotion_little_vgg.h5')
+class_labels = ['Angry','Happy','Neutral','Sad','Surprise']
 
 # multiple cascades: https://github.com/Itseez/opencv/tree/master/data/haarcascades
 
@@ -27,6 +50,19 @@ face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
 cap = cv2.VideoCapture(0)
+
+
+frame_len = int(params.SAMPLE_RATE * 1) # 1sec
+
+p = pyaudio.PyAudio()
+stream = p.open(format=pyaudio.paInt16,
+                channels=1,
+                rate=params.SAMPLE_RATE,
+                input=True,
+                frames_per_buffer=frame_len)
+
+cnt = 0
+plt.ion()
 
 #mouth
 def mouth_aspect_ratio(mouth):
@@ -94,10 +130,38 @@ def eye_ratio(eye):
 out = cv2.VideoWriter('outpy.avi',cv2.VideoWriter_fourcc('M','J','P','G'), 30, (frame_width,frame_height))
 time.sleep(1.0)
 while True:
-    #get the image corresponding to a frame
+    #sound part
+    # #get the image corresponding to a frame
+    
+    # data = stream.read(frame_len, exception_on_overflow=False)
+
+    # # # byte --> float
+    # frame_data = librosa.util.buf_to_float(data, n_bytes=2, dtype=np.int16)
+
+    # # # model prediction
+    # scores, melspec = yamnet.predict(np.reshape(frame_data, [1, -1]), steps=1)
+    # prediction = np.mean(scores, axis=0)
+
+    # # # visualize input audio
+    # # # plt.imshow(melspec.T, cmap='jet', aspect='auto', origin='lower')
+    # # # plt.pause(0.001)
+    # # # plt.show()
+
+    # top5_i = np.argsort(prediction)[::-1][:1]
+
+    # # # print result
+    # print('Current event:\n' +
+    #     '\n'.join('  {:12s}: {:.3f}'.format(yamnet_classes[i], prediction[i])
+    #             for i in top5_i))
+
+    # # # print idx
+    # print(cnt)
+    # cnt += 1
+    #end of sound part
     frame = webcam.read()
     frame = imutils.resize(frame, width=450)
     img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    labels = []
     faces = face_recognition(img, 0)
     facee = face_cascade.detectMultiScale(frame, 1.3, 5)
     faceee = face_cascade.detectMultiScale(
@@ -159,27 +223,49 @@ while True:
                 sleep_count = sleep_count+1
                 if(sleep_count>max_sleep_count):
                     cv2.putText(frame, "SLEEPING!!!", (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                    print("Sleeping")
+                    # print("Sleeping")
             else:
-                print("awake")
+                # print("awake")
                 sleep_count = 0
+                #eye
                 for (x,y,w,h) in facee:
                     cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
-                    roi_gray = frame[y:y+h, x:x+w]
+                    roi_gray = img[y:y+h, x:x+w]
                     roi_color = frame[y:y+h, x:x+w]
-                    eyeflag=True
+                    roi_grayf = cv2.resize(roi_gray,(48,48),interpolation=cv2.INTER_AREA)
+
+                    
+                    if np.sum([roi_grayf])!=0:
+                        roi = roi_grayf.astype('float')/255.0
+                        roi = img_to_array(roi)
+                        roi = np.expand_dims(roi,axis=0)
+
+        # make a prediction on the ROI, then lookup the class
+
+                        preds = classifier.predict(roi)[0]
+                        label=class_labels[preds.argmax()]
+                        label_position = (x,y)
+                        cv2.putText(frame,label,label_position,cv2.FONT_HERSHEY_SIMPLEX,2,(0,255,0),3)
+                    else:
+                        cv2.putText(frame,'No Face Found',(20,60),cv2.FONT_HERSHEY_SIMPLEX,2,(0,255,0),3)
         
                     eyes = eye_cascade.detectMultiScale(roi_gray)
                     for (ex,ey,ew,eh) in eyes:
                         cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+                        eyeflag=True
+                        #end of eye
+                        #head
+                    eyeflag=False 
+
                 for (x, y, w, h) in faceee:
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 4)
-                    cv2.putText(frame, "Student is here", (30,85),
+                    cv2.putText(frame, "Student is sitting", (30,85),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
                     headflag=True
-                if(headflag==True & eyeflag==False):
-                    cv2.putText(frame, "Student is writing", (30,120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
+                    #end of head
+        if(headflag==True and eyeflag==False):
+            cv2.putText(frame, "Student is writing", (30,120),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
     # Write the frame into the file 'output.avi'
     out.write(frame)    
     #show web cam frame 
