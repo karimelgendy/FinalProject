@@ -37,6 +37,18 @@ from keras.preprocessing.image import img_to_array
 from keras.preprocessing import image
 import cv2
 import numpy as np
+#stress and eye brows
+from scipy.spatial import distance as dist
+from imutils.video import VideoStream
+from imutils import face_utils
+import numpy as np
+import imutils
+import time
+import dlib
+import cv2
+import matplotlib.pyplot as plt
+from keras.preprocessing.image import img_to_array
+from keras.models import load_model
 #eye gazing package
 from gaze_tracking import GazeTracking
 
@@ -65,7 +77,38 @@ stream = p.open(format=pyaudio.paInt16,
 
 cnt = 0
 plt.ion()
+def eye_brow_distance(leye,reye):
+    global points
+    distq = dist.euclidean(leye,reye)
+    points.append(int(distq))
+    return distq
 
+def emotion_finder(faces,frame):
+    global emotion_classifier
+    EMOTIONS = ["angry" ,"disgust","scared", "happy", "sad", "surprised","neutral"]
+    x,y,w,h = face_utils.rect_to_bb(faces)
+    frame = frame[y:y+h,x:x+w]
+    roi = cv2.resize(frame,(64,64))
+    roi = roi.astype("float") / 255.0
+    roi = img_to_array(roi)
+    roi = np.expand_dims(roi,axis=0)
+    preds = emotion_classifier.predict(roi)[0]
+    emotion_probability = np.max(preds)
+    label = EMOTIONS[preds.argmax()]
+    if label in ['scared','sad']:
+        label = 'stressed'
+    else:
+        label = 'not stressed'
+    return label    
+
+def normalize_values(points,disp):
+    normalized_value = abs(disp - np.min(points))/abs(np.max(points) - np.min(points))
+    stress_value = np.exp(-(normalized_value))
+    print(stress_value)
+    if stress_value>=75:
+        return stress_value,"High Stress"
+    else:
+        return stress_value,"low_stress"
 #mouth
 def mouth_aspect_ratio(mouth):
 	# compute the euclidean distances between the two sets of
@@ -110,7 +153,10 @@ print("[INFO] starting video stream thread...")
 webcam = VideoStream(src=0).start()
 # vs = VideoStream(src=args["webcam"]).start()
 time.sleep(1.0)
+detector = dlib.get_frontal_face_detector()
 landmarks = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")#predictor
+emotion_classifier = load_model("_mini_XCEPTION.102-0.66.hdf5", compile=False)
+points = []
 face_recognition = dlib.get_frontal_face_detector()#detector
 time.sleep(1.0)
 frame_width = 640
@@ -161,8 +207,13 @@ while True:
     # cnt += 1
     #end of sound part
     frame = webcam.read()
+    frame = cv2.flip(frame,1)
     frame = imutils.resize(frame, width=450)
+    (lBegin, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eyebrow"]
+    (rBegin, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eyebrow"]
+
     img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    detections = detector(img,0)
     labels = []
     gaze.refresh(frame)
     frame = gaze.annotated_frame()
@@ -173,9 +224,9 @@ while True:
     elif gaze.is_right():
         text = ""
     elif gaze.is_left():
-        text = ""
-    elif gaze.is_center():
         text = "4-READING!!"
+    elif gaze.is_center():
+        text = ""
     cv2.putText(frame, text, (30, 120), cv2.FONT_HERSHEY_DUPLEX, 0.7, (0,0,255), 2)    
     faces = face_recognition(img, 0)
     facee = face_cascade.detectMultiScale(frame, 1.3, 5)
@@ -188,7 +239,24 @@ while True:
     )
     if(not(normal) and normal_count<47):
         cv2.putText(frame, "FOCUS YOUR NORMAL EYES", (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 0, 255), 2)    
+    for detection in detections:
+        emotion = emotion_finder(detection,img)
+        cv2.putText(frame, emotion, (70,10),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        shape = landmarks(frame,detection)#landmarks
+        shape = face_utils.shape_to_np(shape)
+           
+        leyebrow = shape[lBegin:lEnd]
+        reyebrow = shape[rBegin:rEnd]
+            
+        reyebrowhull = cv2.convexHull(reyebrow)
+        leyebrowhull = cv2.convexHull(leyebrow)
 
+        cv2.drawContours(frame, [reyebrowhull], -1, (0, 255, 0), 1)
+        cv2.drawContours(frame, [leyebrowhull], -1, (0, 255, 0), 1)
+
+        distq = eye_brow_distance(leyebrow[-1],reyebrow[0])
+        stress_value,stress_label = normalize_values(points,distq)
+        cv2.putText(frame,"stress level:{}".format(str(int(stress_value*100))),(90,40),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
     for face in faces:
         #get the landmark data for the face as numpy array
         face_data = face_utils.shape_to_np(landmarks(img,face))
