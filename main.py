@@ -37,6 +37,8 @@ from keras.preprocessing.image import img_to_array
 from keras.preprocessing import image
 import cv2
 import numpy as np
+#eye gazing package
+from gaze_tracking import GazeTracking
 
 face_classifier = cv2.CascadeClassifier('/Users/Admin/Documents/GitHub/emotion_detection/haarcascade_frontalface_default.xml')
 classifier =load_model('/Users/Admin/Documents/GitHub/emotion_detection/Emotion_little_vgg.h5')
@@ -89,7 +91,7 @@ ap.add_argument("-w", "--webcam", type=int, default=0,
 	help="index of webcam on system")
 args = vars(ap.parse_args())
 
-
+gaze = GazeTracking()
 
 # define one constants, for mouth aspect ratio to indicate open mouth
 MOUTH_AR_THRESH = 0.72
@@ -162,6 +164,19 @@ while True:
     frame = imutils.resize(frame, width=450)
     img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     labels = []
+    gaze.refresh(frame)
+    frame = gaze.annotated_frame()
+    text = ""
+
+    if gaze.is_blinking():
+        text = ""
+    elif gaze.is_right():
+        text = ""
+    elif gaze.is_left():
+        text = ""
+    elif gaze.is_center():
+        text = "4-READING!!"
+    cv2.putText(frame, text, (30, 120), cv2.FONT_HERSHEY_DUPLEX, 0.7, (0,0,255), 2)    
     faces = face_recognition(img, 0)
     facee = face_cascade.detectMultiScale(frame, 1.3, 5)
     faceee = face_cascade.detectMultiScale(
@@ -202,7 +217,7 @@ while True:
         eye_avg_ratio = eye_ratio(left_eye)+eye_ratio(right_eye)/2.0
     # Draw text if mouth is open
         if mar > MOUTH_AR_THRESH:
-            cv2.putText(frame, "Talking", (30,60),
+            cv2.putText(frame, "2-TALKING!!", (30,85),
             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
             
         #print(eye_avg_ratio)
@@ -222,7 +237,7 @@ while True:
             if(normal_eye_ratio-eye_avg_ratio>0.05):
                 sleep_count = sleep_count+1
                 if(sleep_count>max_sleep_count):
-                    cv2.putText(frame, "SLEEPING!!!", (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    cv2.putText(frame, "3-SLEEPING!!!", (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                     # print("Sleeping")
             else:
                 # print("awake")
@@ -231,15 +246,16 @@ while True:
                 for (x,y,w,h) in facee:
                     cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
                     roi_gray = img[y:y+h, x:x+w]
-                    roi_color = frame[y:y+h, x:x+w]
+                    # roi_color = frame[y:y+h, x:x+w]
                     roi_grayf = cv2.resize(roi_gray,(48,48),interpolation=cv2.INTER_AREA)
-
+                    cv2.putText(frame, "1-IS HERE", (30,60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
                     
                     if np.sum([roi_grayf])!=0:
                         roi = roi_grayf.astype('float')/255.0
                         roi = img_to_array(roi)
                         roi = np.expand_dims(roi,axis=0)
-
+                        
         # make a prediction on the ROI, then lookup the class
 
                         preds = classifier.predict(roi)[0]
@@ -249,19 +265,19 @@ while True:
                     else:
                         cv2.putText(frame,'No Face Found',(20,60),cv2.FONT_HERSHEY_SIMPLEX,2,(0,255,0),3)
         
-                    eyes = eye_cascade.detectMultiScale(roi_gray)
-                    for (ex,ey,ew,eh) in eyes:
-                        cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
-                        eyeflag=True
-                        #end of eye
-                        #head
-                    eyeflag=False 
+                    # eyes = eye_cascade.detectMultiScale(roi_gray)
+                    # for (ex,ey,ew,eh) in eyes:
+                    #     cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+                    #     eyeflag=True
+                    #     #end of eye
+                    #     #head
+                    # eyeflag=False 
 
-                for (x, y, w, h) in faceee:
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 4)
-                    cv2.putText(frame, "Student is sitting", (30,85),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
-                    headflag=True
+                # for (x, y, w, h) in faceee:
+                #     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 4)
+                #     cv2.putText(frame, "Student is sitting", (30,85),
+                #     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255),2)
+                #     headflag=True
                     #end of head
         if(headflag==True and eyeflag==False):
             cv2.putText(frame, "Student is writing", (30,120),
