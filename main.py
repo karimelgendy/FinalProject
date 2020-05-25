@@ -104,7 +104,7 @@ def emotion_finder(faces,frame):
 def normalize_values(points,disp):
     normalized_value = abs(disp - np.min(points))/abs(np.max(points) - np.min(points))
     stress_value = np.exp(-(normalized_value))
-    print(stress_value)
+    # print(stress_value)
     if stress_value>=75:
         return stress_value,"High Stress"
     else:
@@ -224,9 +224,9 @@ while True:
     elif gaze.is_right():
         text = ""
     elif gaze.is_left():
-        text = "4-READING!!"
-    elif gaze.is_center():
         text = ""
+    elif gaze.is_center():
+        text = "4-READING!!"
     cv2.putText(frame, text, (30, 120), cv2.FONT_HERSHEY_DUPLEX, 0.7, (0,0,255), 2)    
     faces = face_recognition(img, 0)
     facee = face_cascade.detectMultiScale(frame, 1.3, 5)
@@ -241,7 +241,7 @@ while True:
         cv2.putText(frame, "FOCUS YOUR NORMAL EYES", (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 0, 255), 2)    
     for detection in detections:
         emotion = emotion_finder(detection,img)
-        cv2.putText(frame, emotion, (70,10),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.putText(frame, emotion, (170,10),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         shape = landmarks(frame,detection)#landmarks
         shape = face_utils.shape_to_np(shape)
            
@@ -256,7 +256,7 @@ while True:
 
         distq = eye_brow_distance(leyebrow[-1],reyebrow[0])
         stress_value,stress_label = normalize_values(points,distq)
-        cv2.putText(frame,"stress level:{}".format(str(int(stress_value*100))),(90,40),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.putText(frame,"stress level:{}".format(str(int(stress_value*100))),(150,40),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
     for face in faces:
         #get the landmark data for the face as numpy array
         face_data = face_utils.shape_to_np(landmarks(img,face))
